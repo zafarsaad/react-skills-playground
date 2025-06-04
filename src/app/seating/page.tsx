@@ -3,9 +3,12 @@ import { useCallback, useEffect, useState, useRef } from "react";
 import { Seat } from "@/types/seat";
 import { AlgorithmType } from "@/types/algorithm";
 import { SelectedSeat } from "@/types/selectedSeat";
+import { Pokemon } from "@/types/pokemon";
 import SeatingAlgorithm, {
   SeatingAlgorithmHandle,
 } from "@/components/SeatingAlgorithm";
+import PokemonParty from "@/components/PokemonParty";
+import Image from "next/image";
 
 type Theater = {
   rows: number;
@@ -24,6 +27,10 @@ const Seating = () => {
 
   const [selectedSeats, setSelectedSeats] = useState<SelectedSeat[]>([]);
   const algorithmRef = useRef<SeatingAlgorithmHandle>(null);
+
+  const [fetchedPokemon, setFetchedPokemon] = useState<Pokemon[]>([]);
+
+  const [lostSalesSet, setLostSalesSet] = useState<Pokemon[][]>([]);
 
   function handleAddTheater(rows: number, cols: number) {
     const newTheater = {
@@ -50,17 +57,33 @@ const Seating = () => {
     (seats: SelectedSeat[]) => {
       if (seats.length > 0 && seatMatrix) {
         const newMatrix = [...seatMatrix];
-        seats.forEach((s) => {
-          newMatrix[s.row][s.col] = { open: false, highlighted: true };
+        seats.forEach((s, index) => {
+          if (index < fetchedPokemon.length) {
+            newMatrix[s.row][s.col] = {
+              open: false,
+              highlighted: true,
+              pokemon: {
+                name: fetchedPokemon[index].name,
+                image: fetchedPokemon[index].sprites.front_default,
+              },
+            };
+          }
         });
         setSeatMatrix(newMatrix);
         setSelectedSeats(seats);
       } else {
+        handleLostSales(fetchedPokemon);
         setSelectedSeats([]);
       }
     },
-    [seatMatrix]
+    [seatMatrix, fetchedPokemon]
   );
+
+  function handleLostSales(lostParty: Pokemon[]) {
+    const moreLost = lostSalesSet;
+    moreLost.push(lostParty);
+    setLostSalesSet(moreLost);
+  }
 
   const generateMatrix = useCallback(() => {
     if (!theater) {
@@ -185,6 +208,14 @@ const Seating = () => {
         ))}
       </section>
       <section>
+        <PokemonParty
+          partySize={partySize}
+          onPartyGenerated={(returned) => {
+            setFetchedPokemon(returned);
+          }}
+        />
+      </section>
+      <section>
         {seatMatrix &&
           seatMatrix.map((row, rowIndex) => {
             return (
@@ -203,7 +234,20 @@ const Seating = () => {
                         handleSeatClick(rowIndex, seatIndex);
                       }}
                     >
-                      {seat.open ? "Open" : "X"}
+                      {seat.pokemon ? (
+                        <div>
+                          <Image
+                            src={seat.pokemon.image}
+                            alt={seat.pokemon.name}
+                            width={50}
+                            height={50}
+                          />
+                        </div>
+                      ) : seat.open ? (
+                        "Open"
+                      ) : (
+                        "X"
+                      )}
                     </div>
                   );
                 })}
@@ -233,6 +277,24 @@ const Seating = () => {
               </div>
             ))}
         </div>
+      </section>
+      <section>
+        <h2>Lost Sales</h2>
+        {lostSalesSet &&
+          lostSalesSet.map((set, index) => (
+            <div key={index} className="flex">
+              {set.map((mon, monIndex) => (
+                <div key={monIndex}>
+                  <Image
+                    src={mon.sprites.front_default}
+                    alt={mon.name}
+                    width={50}
+                    height={50}
+                  />
+                </div>
+              ))}
+            </div>
+          ))}
       </section>
     </main>
   );
